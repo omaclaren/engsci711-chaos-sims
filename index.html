@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>ENGSCI 711 — Intro to chaos sims</title>
+<style>
+  :root { --bg:#101216; --panel:#1b1f29; --ink:#f3f5f7; --muted:#aab2c0; --accent:#74d2ff; --accent2:#ffb86b; --bad:#ff6b6b; --good:#9be564; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color: var(--ink); background: var(--bg); }
+  header { padding: 14px 18px; border-bottom: 1px solid #303545; background: #131720; position: sticky; top:0; z-index:5; }
+  h1 { font-size: 20px; margin: 0; }
+  .subtitle { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .tabs { display:flex; gap:8px; overflow-x:auto; padding: 10px 12px; background:#0c0f14; border-bottom: 1px solid #252a36; position: sticky; top: 62px; z-index:4; }
+  button, select { background:#263043; color:var(--ink); border:1px solid #3a455a; border-radius:10px; padding:10px 12px; font-size:15px; }
+  button.active { background:var(--accent); color:#06111a; border-color:var(--accent); font-weight:700; }
+  button.primary { background:var(--accent); color:#06111a; font-weight:700; }
+  button.warn { background:#5b2d32; border-color:#8b3f48; }
+  main { padding: 14px; max-width: 1200px; margin: 0 auto; }
+  .sim { display:none; }
+  .sim.active { display:block; }
+  .grid { display:grid; grid-template-columns: minmax(0, 1fr) 330px; gap:14px; align-items:start; }
+  @media (max-width: 850px) { .grid { grid-template-columns: 1fr; } .tabs { top: 62px; } }
+  .card { background:var(--panel); border:1px solid #303545; border-radius:16px; padding:12px; box-shadow: 0 8px 30px #0004; }
+  canvas { width:100%; height:auto; background:#05070a; border-radius:12px; display:block; touch-action:none; }
+  .controls { display:grid; gap:10px; }
+  label { display:grid; gap:5px; color:var(--muted); font-size:13px; }
+  input[type="range"] { width:100%; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .value { color:var(--ink); font-variant-numeric:tabular-nums; }
+  .note { color:var(--muted); font-size:14px; }
+  .big { font-size: 18px; }
+  .metric { display:grid; grid-template-columns: 1fr auto; gap:8px; padding:8px 0; border-bottom: 1px solid #303545; }
+  .metric:last-child { border-bottom:0; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#2b3344; color:var(--muted); font-size:12px; }
+  .eq { font-family: ui-monospace,SFMono-Regular,Menlo,monospace; color:#d7e8ff; background:#0b0e14; border-radius:8px; padding:8px; overflow-x:auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ENGSCI 711 — Bonus lecture: intro to chaos</h1>
+  <div class="subtitle">iPad-friendly, self-contained simulations: Lorenz, sensitive dependence, Lorenz map, logistic/tent maps.</div>
+</header>
+<nav class="tabs">
+  <button class="tab active" data-tab="lorenz">Lorenz attractor</button>
+  <button class="tab" data-tab="sensitive">Sensitive dependence</button>
+  <button class="tab" data-tab="lmap">Lorenz map</button>
+  <button class="tab" data-tab="maps">1D maps</button>
+  <button class="tab" data-tab="rossler">Rössler</button>
+</nav>
+<main>
+<section id="lorenz" class="sim active">
+  <div class="grid">
+    <div class="card"><canvas id="lorenzCanvas" width="1000" height="720"></canvas></div>
+    <div class="card controls">
+      <div class="big">Lorenz system</div>
+      <div class="eq">x' = σ(y−x)<br>y' = x(ρ−z)−y<br>z' = xy−βz</div>
+      <label>ρ <span class="value" id="rhoVal"></span><input id="rho" type="range" min="0" max="60" step="0.1" value="28"></label>
+      <label>σ <span class="value" id="sigmaVal"></span><input id="sigma" type="range" min="1" max="20" step="0.1" value="10"></label>
+      <label>β <span class="value" id="betaVal"></span><input id="beta" type="range" min="0.5" max="6" step="0.01" value="2.6667"></label>
+      <label>speed <span class="value" id="lorSpeedVal"></span><input id="lorSpeed" type="range" min="1" max="12" step="1" value="5"></label>
+      <div class="row"><button class="primary" id="lorPause">Pause</button><button id="lorReset">Reset</button><button id="lorClear">Clear trail</button></div>
+      <div class="note">Teaching point: no stable fixed point/periodic orbit in this parameter range, but trajectories remain bounded and approach a strange attractor.</div>
+    </div>
+  </div>
+</section>
+
+<section id="sensitive" class="sim">
+  <div class="grid">
+    <div class="card"><canvas id="sensCanvas" width="1000" height="720"></canvas></div>
+    <div class="card controls">
+      <div class="big">Sensitive dependence</div>
+      <div class="eq">two initial conditions separated by ε</div>
+      <label>initial separation ε <span class="value" id="epsVal"></span><input id="eps" type="range" min="-8" max="-1" step="0.1" value="-5"></label>
+      <label>ρ <span class="value" id="sensRhoVal"></span><input id="sensRho" type="range" min="0" max="60" step="0.1" value="28"></label>
+      <label>speed <span class="value" id="sensSpeedVal"></span><input id="sensSpeed" type="range" min="1" max="12" step="1" value="5"></label>
+      <div class="metric"><span>current separation</span><strong id="sepNow"></strong></div>
+      <div class="metric"><span>log separation</span><strong id="logSepNow"></strong></div>
+      <div class="row"><button class="primary" id="sensPause">Pause</button><button id="sensReset">Reset</button></div>
+      <div class="note">Teaching point: tiny, experimentally indistinguishable differences can grow until prediction becomes useless.</div>
+    </div>
+  </div>
+</section>
+
+<section id="lmap" class="sim">
+  <div class="grid">
+    <div class="card"><canvas id="lmapCanvas" width="1000" height="720"></canvas></div>
+    <div class="card controls">
+      <div class="big">Lorenz map: maxima to next maxima</div>
+      <div class="eq">zₙ = local max of z(t)<br>plot zₙ₊₁ versus zₙ</div>
+      <label>ρ <span class="value" id="mapRhoVal"></span><input id="mapRho" type="range" min="20" max="45" step="0.1" value="28"></label>
+      <label>iterations/frame <span class="value" id="mapSpeedVal"></span><input id="mapSpeed" type="range" min="50" max="1000" step="10" value="250"></label>
+      <div class="row"><button class="primary" id="mapPause">Pause</button><button id="mapReset">Reset</button></div>
+      <div class="note">Teaching point: a 3D flow can induce a much simpler-looking 1D return map. Hidden predictability sits inside chaotic motion.</div>
+    </div>
+  </div>
+</section>
+
+<section id="maps" class="sim">
+  <div class="grid">
+    <div class="card"><canvas id="mapsCanvas" width="1000" height="720"></canvas></div>
+    <div class="card controls">
+      <div class="big">One-dimensional map dynamics</div>
+      <label>map type <select id="mapType"><option value="logistic">logistic: x ↦ r x(1−x)</option><option value="tent">tent: x ↦ μ min(x,1−x)</option></select></label>
+      <label>parameter <span class="value" id="oneDParamVal"></span><input id="oneDParam" type="range" min="0" max="4" step="0.001" value="3.7"></label>
+      <label>x₀ <span class="value" id="x0Val"></span><input id="x0" type="range" min="0.001" max="0.999" step="0.001" value="0.23"></label>
+      <label>cobweb steps <span class="value" id="stepsVal"></span><input id="steps" type="range" min="5" max="200" step="1" value="60"></label>
+      <div class="row"><button id="presetStable">stable</button><button id="presetPeriod">period 2</button><button id="presetChaos">chaos</button></div>
+      <div class="note">Teaching point: discrete-time systems can show fixed points, period-doubling, and chaos even in one dimension.</div>
+    </div>
+  </div>
+</section>
+
+<section id="rossler" class="sim">
+  <div class="grid">
+    <div class="card"><canvas id="rossCanvas" width="1000" height="720"></canvas></div>
+    <div class="card controls">
+      <div class="big">Rössler system</div>
+      <div class="eq">x' = −y−z<br>y' = x + ay<br>z' = b + z(x−c)</div>
+      <label>a <span class="value" id="raVal"></span><input id="ra" type="range" min="0.05" max="0.5" step="0.01" value="0.2"></label>
+      <label>b <span class="value" id="rbVal"></span><input id="rb" type="range" min="0.05" max="1" step="0.01" value="0.2"></label>
+      <label>c <span class="value" id="rcVal"></span><input id="rc" type="range" min="2" max="14" step="0.1" value="5.7"></label>
+      <label>speed <span class="value" id="rossSpeedVal"></span><input id="rossSpeed" type="range" min="1" max="12" step="1" value="5"></label>
+      <div class="row"><button class="primary" id="rossPause">Pause</button><button id="rossReset">Reset</button><button id="rossClear">Clear trail</button></div>
+      <div class="note">Teaching point: another simple 3D ODE with a strange attractor; often visually simpler than Lorenz.</div>
+    </div>
+  </div>
+</section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const tabs = document.querySelectorAll('.tab');
+let active = 'lorenz';
+tabs.forEach(b => b.onclick = () => { tabs.forEach(x=>x.classList.remove('active')); b.classList.add('active'); document.querySelectorAll('.sim').forEach(s=>s.classList.remove('active')); active=b.dataset.tab; $(active).classList.add('active'); });
+function val(id){ return parseFloat($(id).value); }
+function fmt(x,n=3){ return Number(x).toFixed(n).replace(/0+$/,'').replace(/\.$/,''); }
+function rk4(s, dt, f){ const k1=f(s), k2=f(add(s,mul(k1,dt/2))), k3=f(add(s,mul(k2,dt/2))), k4=f(add(s,mul(k3,dt))); return add(s,mul(add(add(k1,mul(k2,2)),add(mul(k3,2),k4)),dt/6)); }
+function add(a,b){ return a.map((x,i)=>x+b[i]); } function mul(a,c){ return a.map(x=>x*c); }
+function lorenzF(rho, sigma, beta){ return ([x,y,z]) => [sigma*(y-x), x*(rho-z)-y, x*y-beta*z]; }
+function rossF(a,b,c){ return ([x,y,z]) => [-y-z, x+a*y, b+z*(x-c)]; }
+function project([x,y,z], scale=9, rot=0.75){ const cr=Math.cos(rot), sr=Math.sin(rot); const X=cr*x+sr*y, Y=-0.28*sr*x+0.28*cr*y+0.9*z; return [500+scale*X, 610-scale*Y]; }
+function fade(ctx, alpha=0.08){ ctx.fillStyle=`rgba(5,7,10,${alpha})`; ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height); }
+function line(ctx,a,b,color,w=1.4){ ctx.strokeStyle=color; ctx.lineWidth=w; ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke(); }
+function clearCanvas(id){ const c=$(id), ctx=c.getContext('2d'); ctx.fillStyle='#05070a'; ctx.fillRect(0,0,c.width,c.height); }
+
+let L={s:[1,1,1], paused:false}; clearCanvas('lorenzCanvas');
+$('lorPause').onclick=()=>{L.paused=!L.paused; $('lorPause').textContent=L.paused?'Run':'Pause'}; $('lorReset').onclick=()=>{L.s=[1,1,1]; clearCanvas('lorenzCanvas')}; $('lorClear').onclick=()=>clearCanvas('lorenzCanvas');
+function stepLorenz(){ $('rhoVal').textContent=fmt(val('rho'),1); $('sigmaVal').textContent=fmt(val('sigma'),1); $('betaVal').textContent=fmt(val('beta'),3); $('lorSpeedVal').textContent=val('lorSpeed'); if(L.paused)return; const ctx=$('lorenzCanvas').getContext('2d'); fade(ctx,0.035); const f=lorenzF(val('rho'),val('sigma'),val('beta')); for(let i=0;i<val('lorSpeed')*8;i++){ const old=L.s; L.s=rk4(L.s,0.006,f); line(ctx,project(old),project(L.s),'#74d2ff',1.2); } }
+
+let S={a:[1,1,1], b:[1+1e-5,1,1], paused:false}; clearCanvas('sensCanvas');
+$('sensPause').onclick=()=>{S.paused=!S.paused; $('sensPause').textContent=S.paused?'Run':'Pause'}; $('sensReset').onclick=()=>{const e=Math.pow(10,val('eps')); S.a=[1,1,1]; S.b=[1+e,1,1]; clearCanvas('sensCanvas')};
+$('eps').oninput=()=>$('sensReset').click();
+function stepSens(){ $('epsVal').textContent='10^'+fmt(val('eps'),1); $('sensRhoVal').textContent=fmt(val('sensRho'),1); $('sensSpeedVal').textContent=val('sensSpeed'); if(S.paused)return; const ctx=$('sensCanvas').getContext('2d'); fade(ctx,0.04); const f=lorenzF(val('sensRho'),10,8/3); for(let i=0;i<val('sensSpeed')*8;i++){ const oa=S.a, ob=S.b; S.a=rk4(S.a,0.006,f); S.b=rk4(S.b,0.006,f); line(ctx,project(oa),project(S.a),'#74d2ff',1.2); line(ctx,project(ob),project(S.b),'#ffb86b',1.2); } const d=Math.hypot(S.a[0]-S.b[0],S.a[1]-S.b[1],S.a[2]-S.b[2]); $('sepNow').textContent=d.toExponential(2); $('logSepNow').textContent=Math.log(d).toFixed(2); }
+
+let LM={s:[1,1,1], prevz:1, slope:0, lastMax:null, pairs:[], paused:false}; clearCanvas('lmapCanvas');
+$('mapPause').onclick=()=>{LM.paused=!LM.paused; $('mapPause').textContent=LM.paused?'Run':'Pause'}; $('mapReset').onclick=()=>{LM={s:[1,1,1], prevz:1, slope:0, lastMax:null, pairs:[], paused:false}; clearCanvas('lmapCanvas');};
+function drawAxes(ctx){ ctx.strokeStyle='#3a455a'; ctx.lineWidth=1; ctx.strokeRect(70,50,860,600); ctx.fillStyle='#aab2c0'; ctx.font='22px -apple-system'; ctx.fillText('zₙ',480,690); ctx.save(); ctx.translate(25,365); ctx.rotate(-Math.PI/2); ctx.fillText('zₙ₊₁',0,0); ctx.restore(); }
+function mxy(x,y){ const lo=20, hi=55; return [70+(x-lo)/(hi-lo)*860, 650-(y-lo)/(hi-lo)*600]; }
+function stepLMap(){ $('mapRhoVal').textContent=fmt(val('mapRho'),1); $('mapSpeedVal').textContent=val('mapSpeed'); if(LM.paused)return; const ctx=$('lmapCanvas').getContext('2d'); ctx.fillStyle='rgba(5,7,10,0.08)'; ctx.fillRect(0,0,1000,720); drawAxes(ctx); const f=lorenzF(val('mapRho'),10,8/3); for(let i=0;i<val('mapSpeed');i++){ const oldz=LM.s[2]; LM.s=rk4(LM.s,0.006,f); const dz=LM.s[2]-oldz; if(LM.s[2]>25 && LM.s[2]<60 && LM.s[2] < oldz && LM.s[2] > LM.prevz){ /* no-op */ }
+    if(LM.slope>0 && dz<=0 && oldz>25){ if(LM.lastMax!==null) LM.pairs.push([LM.lastMax, oldz]); LM.lastMax=oldz; if(LM.pairs.length>500) LM.pairs.shift(); }
+    LM.slope=dz; LM.prevz=oldz;
+  }
+  ctx.fillStyle='#74d2ff'; for(const [x,y] of LM.pairs){ const p=mxy(x,y); ctx.beginPath(); ctx.arc(p[0],p[1],3,0,7); ctx.fill(); }
+}
+
+function oneMap(x){ const t=$('mapType').value, p=val('oneDParam'); return t==='tent' ? p*Math.min(x,1-x) : p*x*(1-x); }
+$('mapType').onchange=()=>{ if($('mapType').value==='tent'){ $('oneDParam').max=2; $('oneDParam').value=1.8; } else { $('oneDParam').max=4; $('oneDParam').value=3.7; } };
+$('presetStable').onclick=()=>{ $('mapType').value='logistic'; $('oneDParam').max=4; $('oneDParam').value=2.7; };
+$('presetPeriod').onclick=()=>{ $('mapType').value='logistic'; $('oneDParam').max=4; $('oneDParam').value=3.2; };
+$('presetChaos').onclick=()=>{ $('mapType').value='logistic'; $('oneDParam').max=4; $('oneDParam').value=3.9; };
+function stepMaps(){ const ctx=$('mapsCanvas').getContext('2d'); ctx.fillStyle='#05070a'; ctx.fillRect(0,0,1000,720); $('oneDParamVal').textContent=fmt(val('oneDParam'),3); $('x0Val').textContent=fmt(val('x0'),3); $('stepsVal').textContent=val('steps'); const X=x=>80+x*560, Y=y=>650-y*560; ctx.strokeStyle='#303545'; ctx.lineWidth=1; ctx.strokeRect(80,90,560,560); ctx.strokeStyle='#666'; ctx.beginPath(); ctx.moveTo(X(0),Y(0)); ctx.lineTo(X(1),Y(1)); ctx.stroke(); ctx.strokeStyle='#74d2ff'; ctx.lineWidth=3; ctx.beginPath(); for(let i=0;i<=500;i++){ const x=i/500, y=oneMap(x); if(i===0)ctx.moveTo(X(x),Y(y)); else ctx.lineTo(X(x),Y(y)); } ctx.stroke(); let x=val('x0'); ctx.strokeStyle='#ffb86b'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(X(x),Y(0)); ctx.lineTo(X(x),Y(oneMap(x))); for(let k=0;k<val('steps');k++){ const y=oneMap(x); ctx.lineTo(X(y),Y(y)); ctx.lineTo(X(y),Y(oneMap(y))); x=y; } ctx.stroke();
+  // bifurcation diagram
+  ctx.fillStyle='#aab2c0'; ctx.font='18px -apple-system'; ctx.fillText('cobweb',285,55); ctx.fillText('bifurcation sketch',735,55); ctx.strokeStyle='#303545'; ctx.strokeRect(700,90,240,560); const maxP=$('mapType').value==='tent'?2:4; const minP=$('mapType').value==='tent'?0:2.5; for(let i=0;i<240;i++){ const p=minP+(maxP-minP)*i/240; let xx=0.231; for(let j=0;j<200;j++) xx= $('mapType').value==='tent'? p*Math.min(xx,1-xx): p*xx*(1-xx); ctx.fillStyle='#9be564'; for(let j=0;j<80;j++){ xx= $('mapType').value==='tent'? p*Math.min(xx,1-xx): p*xx*(1-xx); const px=700+i, py=650-xx*560; ctx.fillRect(px,py,1,1); } } const cur=(val('oneDParam')-minP)/(maxP-minP); ctx.strokeStyle='#ff6b6b'; ctx.beginPath(); ctx.moveTo(700+cur*240,90); ctx.lineTo(700+cur*240,650); ctx.stroke(); }
+
+let R={s:[1,0,0], paused:false}; clearCanvas('rossCanvas');
+$('rossPause').onclick=()=>{R.paused=!R.paused; $('rossPause').textContent=R.paused?'Run':'Pause'}; $('rossReset').onclick=()=>{R.s=[1,0,0]; clearCanvas('rossCanvas')}; $('rossClear').onclick=()=>clearCanvas('rossCanvas');
+function stepRoss(){ $('raVal').textContent=fmt(val('ra'),2); $('rbVal').textContent=fmt(val('rb'),2); $('rcVal').textContent=fmt(val('rc'),1); $('rossSpeedVal').textContent=val('rossSpeed'); if(R.paused)return; const ctx=$('rossCanvas').getContext('2d'); fade(ctx,0.035); const f=rossF(val('ra'),val('rb'),val('rc')); for(let i=0;i<val('rossSpeed')*10;i++){ const old=R.s; R.s=rk4(R.s,0.01,f); line(ctx,project(old,16,0.4),project(R.s,16,0.4),'#9be564',1.2); } }
+function loop(){ if(active==='lorenz')stepLorenz(); if(active==='sensitive')stepSens(); if(active==='lmap')stepLMap(); if(active==='maps')stepMaps(); if(active==='rossler')stepRoss(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>
