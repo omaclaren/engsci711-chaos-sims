@@ -70,14 +70,15 @@
     <div class="card"><canvas id="sensCanvas" width="1000" height="720"></canvas></div>
     <div class="card controls">
       <div class="big">Sensitive dependence</div>
-      <div class="eq">two initial conditions separated by ε</div>
-      <label>initial separation ε <span class="value" id="epsVal"></span><input id="eps" type="range" min="-8" max="-1" step="0.1" value="-5"></label>
+      <div class="eq">many initial conditions in a tiny ball</div>
+      <label>initial ball radius <span class="value" id="epsVal"></span><input id="eps" type="range" min="-8" max="-1" step="0.1" value="-5"></label>
+      <label>number of points <span class="value" id="nPtsVal"></span><input id="nPts" type="range" min="20" max="400" step="10" value="180"></label>
       <label>ρ <span class="value" id="sensRhoVal"></span><input id="sensRho" type="range" min="0" max="60" step="0.1" value="28"></label>
       <label>speed <span class="value" id="sensSpeedVal"></span><input id="sensSpeed" type="range" min="1" max="12" step="1" value="5"></label>
-      <div class="metric"><span>current separation</span><strong id="sepNow"></strong></div>
-      <div class="metric"><span>log separation</span><strong id="logSepNow"></strong></div>
+      <div class="metric"><span>simulation time</span><strong id="sensTime"></strong></div>
+      <div class="metric"><span>cloud diameter</span><strong id="cloudDiam"></strong></div>
       <div class="row"><button class="primary" id="sensPause">Pause</button><button id="sensReset">Reset</button></div>
-      <div class="note">Teaching point: tiny, experimentally indistinguishable differences can grow until prediction becomes useless.</div>
+      <div class="note">Teaching point: an initially indistinguishable ball of states stretches, folds, and spreads over the attractor. No trails: each dot is one possible current state.</div>
     </div>
   </div>
 </section>
@@ -147,10 +148,35 @@ let L={s:[1,1,1], paused:false}; clearCanvas('lorenzCanvas');
 $('lorPause').onclick=()=>{L.paused=!L.paused; $('lorPause').textContent=L.paused?'Run':'Pause'}; $('lorReset').onclick=()=>{L.s=[1,1,1]; clearCanvas('lorenzCanvas')}; $('lorClear').onclick=()=>clearCanvas('lorenzCanvas');
 function stepLorenz(){ $('rhoVal').textContent=fmt(val('rho'),1); $('sigmaVal').textContent=fmt(val('sigma'),1); $('betaVal').textContent=fmt(val('beta'),3); $('lorSpeedVal').textContent=val('lorSpeed'); if(L.paused)return; const ctx=$('lorenzCanvas').getContext('2d'); fade(ctx,0.035); const f=lorenzF(val('rho'),val('sigma'),val('beta')); for(let i=0;i<val('lorSpeed')*16;i++){ const old=L.s; L.s=rk4(L.s,0.003,f); line(ctx,project(old),project(L.s),'#74d2ff',1.2); } }
 
-let S={a:[1,1,1], b:[1+1e-5,1,1], paused:false}; clearCanvas('sensCanvas');
-$('sensPause').onclick=()=>{S.paused=!S.paused; $('sensPause').textContent=S.paused?'Run':'Pause'}; $('sensReset').onclick=()=>{const e=Math.pow(10,val('eps')); S.a=[1,1,1]; S.b=[1+e,1,1]; clearCanvas('sensCanvas')};
-$('eps').oninput=()=>$('sensReset').click();
-function stepSens(){ $('epsVal').textContent='10^'+fmt(val('eps'),1); $('sensRhoVal').textContent=fmt(val('sensRho'),1); $('sensSpeedVal').textContent=val('sensSpeed'); if(S.paused)return; const ctx=$('sensCanvas').getContext('2d'); fade(ctx,0.04); const f=lorenzF(val('sensRho'),10,8/3); for(let i=0;i<val('sensSpeed')*16;i++){ const oa=S.a, ob=S.b; S.a=rk4(S.a,0.003,f); S.b=rk4(S.b,0.003,f); line(ctx,project(oa),project(S.a),'#74d2ff',1.2); line(ctx,project(ob),project(S.b),'#ffb86b',1.2); } const d=Math.hypot(S.a[0]-S.b[0],S.a[1]-S.b[1],S.a[2]-S.b[2]); $('sepNow').textContent=d.toExponential(2); $('logSepNow').textContent=Math.log(d).toFixed(2); }
+let S={pts:[], paused:false, t:0};
+function resetSens(){
+  const n=Math.round(val('nPts')), r=Math.pow(10,val('eps')), centre=[1,1,1];
+  let pts=[];
+  for(let i=0;i<n;i++){
+    let u=Math.random(), v=Math.random(), w=Math.random();
+    const theta=2*Math.PI*u, phi=Math.acos(2*v-1), rad=r*Math.cbrt(w);
+    pts.push({s:[centre[0]+rad*Math.sin(phi)*Math.cos(theta), centre[1]+rad*Math.sin(phi)*Math.sin(theta), centre[2]+rad*Math.cos(phi)], h:360*i/n});
+  }
+  S.pts=pts; S.t=0; clearCanvas('sensCanvas');
+}
+resetSens();
+$('sensPause').onclick=()=>{S.paused=!S.paused; $('sensPause').textContent=S.paused?'Run':'Pause'};
+$('sensReset').onclick=resetSens;
+$('eps').oninput=resetSens; $('nPts').oninput=resetSens; $('sensRho').oninput=resetSens;
+function stepSens(){
+  $('epsVal').textContent='10^'+fmt(val('eps'),1); $('nPtsVal').textContent=Math.round(val('nPts')); $('sensRhoVal').textContent=fmt(val('sensRho'),1); $('sensSpeedVal').textContent=val('sensSpeed');
+  const ctx=$('sensCanvas').getContext('2d'); ctx.fillStyle='#05070a'; ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height);
+  const f=lorenzF(val('sensRho'),10,8/3); const steps=val('sensSpeed')*16;
+  if(!S.paused){ for(let k=0;k<steps;k++){ for(const p of S.pts) p.s=rk4(p.s,0.003,f); S.t += 0.003; } }
+  let min=[Infinity,Infinity,Infinity], max=[-Infinity,-Infinity,-Infinity];
+  for(const p of S.pts){ for(let j=0;j<3;j++){ if(p.s[j]<min[j])min[j]=p.s[j]; if(p.s[j]>max[j])max[j]=p.s[j]; } }
+  const diam=Math.hypot(max[0]-min[0], max[1]-min[1], max[2]-min[2]);
+  $('sensTime').textContent=fmt(S.t,2); $('cloudDiam').textContent=diam.toExponential(2);
+  // faint reference attractor from current cloud centre to orient the dots
+  ctx.globalAlpha=0.12; ctx.strokeStyle='#3a455a'; ctx.lineWidth=1;
+  ctx.globalAlpha=1;
+  for(const p of S.pts){ const q=project(p.s); ctx.fillStyle=`hsl(${p.h} 90% 65%)`; ctx.beginPath(); ctx.arc(q[0],q[1],3.2,0,Math.PI*2); ctx.fill(); }
+}
 
 let LM={s:[1,1,1], prevz:1, slope:0, lastMax:null, pairs:[], paused:false}; clearCanvas('lmapCanvas');
 $('mapPause').onclick=()=>{LM.paused=!LM.paused; $('mapPause').textContent=LM.paused?'Run':'Pause'}; $('mapReset').onclick=()=>{LM={s:[1,1,1], prevz:1, slope:0, lastMax:null, pairs:[], paused:false}; clearCanvas('lmapCanvas');};
